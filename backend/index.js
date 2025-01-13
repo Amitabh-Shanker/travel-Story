@@ -6,6 +6,10 @@ const bcrypt=require("bcrypt");
 const express=require("express");
 const cors=require("cors");
 const  jwt=require("jsonwebtoken");
+const upload=require("./multer");
+const fs=require("fs");
+const path=require("path");
+
 const { authenticateToken }=require("./utilities");
 
 const User=require("./models/user.model");
@@ -156,6 +160,26 @@ app.get("/get-all-stories",authenticateToken,async(req,res)=>{
     res.status(500).json({error:true,message:error.message});
   }
 });
+
+
+//Route to handle image upload
+app.post("/image-upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: true, message: "No image uploaded" });
+    }
+
+    const imageUrl = `http://localhost:8000/uploads/${req.file.filename}`; // Fixed template string syntax
+
+    res.status(201).json({ imageUrl }); // Corrected object syntax
+  } catch (error) {
+    res.status(500).json({ error: true, message: error.message }); // Fixed "message" key spelling
+  }
+});
+
+//Serve static files from the uploads and assets directory
+
+app.use("/uploads",express.static(path.join(__dirname,"uploads")));
 
 
 
