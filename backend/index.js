@@ -6,8 +6,12 @@ const bcrypt=require("bcrypt");
 const express=require("express");
 const cors=require("cors");
 const  jwt=require("jsonwebtoken");
+const { authenticateToken }=require("./utilities");
 
 const User=require("./models/user.model");
+const TravelStory=require("./models/travelStory.model");
+
+
   
 mongoose.connect(config.connectionString);
 const app=express();
@@ -75,7 +79,87 @@ app.post("/login",async(req,res)=>{
     return res.status(400).json({mesage:"Invalid Credentials"});
   }
   
+  const accessToken=jwt.sign(
+    {userId:user._id},
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn:"72h",
+    }
+  );
+
+  return res.json({
+    error:false,
+    message:"Login Successful",
+    user:{fullName:user.fullName,email:user.email},
+    accessToken,
+  });
+
+});
+
+//Get user
+app.get("/get-user",authenticateToken,async(req,res)=>{
+  const {userId}=req.user;
+
+  const isUser=await User.findOne({_id:userId});
+  if(!isUser) {
+    return res.sendStatus(401);
+  }
+ 
+  return res.json({
+    user:isUser, 
+    message:"",
+  });
+
+});
+
+//Add Travel Story
+app.post("/add-travel-story",authenticateToken,async(req,res)=> {
+  const {title,story,visitedLocation,imageUrl,visitedDate}=req.body
+  const {userId}=req.user
+  
+  //validate required fields
+  if(!title||!story||!visitedLocation||!imageUrl||!visitedDate) {
+    return res.status(400).json({ error:true,message:"All fields are required"});
+  }
+
+  //Convert visitedDate from milliseconds to Date object
+  const parsedVisitedDate=new Date(parseInt(visitedDate));
+
+  try{
+    const travelStory=new TravelStory({
+      title,
+      story,
+      visitedLocation,
+      userId,
+      imageUrl,
+      visitedDate:parsedVisitedDate,
+    });
+
+    await travelStory.save();
+    res.status(201).json({story:travelStory,message:'Added Successfully'});
+  }catch(error) {
+    res.status(400).json({error:true,message:error.message});
+  }
+
 })
+
+//Get All Travel Stories
+app.get("/get-all-stories",authenticateToken,async(req,res)=>{
+  const { userId }=req.user;
+    
+  try {
+    const travelStories=await TravelStory.find({ userId:userId}).sort ({
+      isFavorite:-1,
+    });
+    res.status(200).json({ stories:travelStories});
+  }catch(error) {
+    res.status(500).json({error:true,message:error.message});
+  }
+});
+
+
+
+
 
 
 app.listen(8000);
