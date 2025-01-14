@@ -116,6 +116,58 @@ app.get("/get-user",authenticateToken,async(req,res)=>{
 
 });
 
+
+//Route to handle image upload
+app.post("/image-upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: true, message: "No image uploaded" });
+    }
+
+    const imageUrl = `http://localhost:8000/uploads/${req.file.filename}`; // Fixed template string syntax
+
+    res.status(201).json({ imageUrl }); // Corrected object syntax
+  } catch (error) {
+    res.status(500).json({ error: true, message: error.message }); // Fixed "message" key spelling
+  }
+});
+
+
+//Delete an image  from uploads folder
+
+app.delete("/delete-image",async(req,res)=> {
+  const { imageUrl }=req.query;
+
+  if(!imageUrl)
+  {
+    return res.status(400).json({error:true,message:"imageUrl parameter is required"});
+  }
+
+  try {
+    //Extract the filename from the imageUrl
+    const filename=path.basename(imageUrl);
+
+    //Define the file path
+    const filePath=path.join(__dirname,'uploads',filename);
+
+    //check if the file exists
+    if(fs.existsSync(filePath)) {
+      //Delete the file from the uploads folder
+      fs.unlinkSync(filePath);
+      res.status(200).json({message:"image deleted successfully"});
+    }else {
+      res.status(200).json({error:true,message:"image not found"});
+    }
+  }catch(error) {
+    res.status(500).json({error:true,message:error.message});
+  }
+});
+//Serve static files from the uploads and assets directory
+
+app.use("/uploads",express.static(path.join(__dirname,"uploads")));
+app.use("/assets",express.static(path.join(__dirname,"assets")));
+
+
 //Add Travel Story
 app.post("/add-travel-story",authenticateToken,async(req,res)=> {
   const {title,story,visitedLocation,imageUrl,visitedDate}=req.body
@@ -161,30 +213,131 @@ app.get("/get-all-stories",authenticateToken,async(req,res)=>{
   }
 });
 
+//Edit travel story
+app.put("/edit-story/:id",authenticateToken,async(req,res)=> {
 
-//Route to handle image upload
-app.post("/image-upload", upload.single("image"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: true, message: "No image uploaded" });
-    }
+  const { id }=req.params;
+  const { title,story,visitedLocation,imageUrl,visitedDate}=req.body;
+  const { userId }=req.user;
 
-    const imageUrl = `http://localhost:8000/uploads/${req.file.filename}`; // Fixed template string syntax
-
-    res.status(201).json({ imageUrl }); // Corrected object syntax
-  } catch (error) {
-    res.status(500).json({ error: true, message: error.message }); // Fixed "message" key spelling
+  //validate required fields
+  if(!title||!story||!visitedLocation||!imageUrl||!visitedDate) {
+    return res.status(400).json({error:true,message:"all fields are required"});
   }
+
+  //convert visitedDate from milliseconds to Date object
+  const parsedVisitedDate=new Date(parseInt(visitedDate));
+
+  try {
+    //Find the travel story by Id and ensure it belongs to the authenticated user
+
+    const travelStory=await TravelStory.findOne({_id:id,userId:userId});
+
+    if(!travelStory) {
+      return res.status(404).json({error:true,message:"Travel story not found"});
+    }
+    const placeholderImgUrl='http://localhost:8000/assets/placeholder.png';
+
+    travelStory.title=title;
+    travelStory.story=story;
+    travelStory.visitedLocation=visitedLocation;
+    travelStory.imageUrl=imageUrl||placeholderImgUrl;
+    travelStory.visitedDate=parsedVisitedDate;
+
+    await travelStory.save();
+    res.status(200).json({story:travelStory,message:'Update Successful'});
+  }catch(error) {
+    res.status(500).json({error:true,message:error.message});
+  }
+
 });
 
-//Serve static files from the uploads and assets directory
+app.delete("/delete-story/:id",authenticateToken,async(req,res)=>{
+  const { id }=req.params;
+  const { userId }=req.user;
 
-app.use("/uploads",express.static(path.join(__dirname,"uploads")));
+  try {
+     //Find the travel story by Id and ensure it belongs to the authenticated user
+
+     const travelStory=await TravelStory.findOne({_id:id,userId:userId});
+
+     if(!travelStory) {
+       return res.status(404).json({error:true,message:"Travel story not found"});
+     }
+
+     //Delete the travel story from the database
+     await travelStory.deleteOne({_id:id,userId:userId});
+
+     //Extract the filename from the imageUrl
+     const imageUrl=travelStory.imageUrl;
+     const filename=path.basename(imageUrl);
+
+     //Define the file path
+     const filePath=path.join(__dirname,'uploads',filename);
+
+     //Delete the image file from the uploads folder
+     fs.unlink(filePath,(err)=>{
+      if(err) {
+        console.error("Failed the delete image :",err);
+        //Optionally ,you could still respond with a success status here
+        //if you don't want to treat this as a critical error.
+      }
+     });
+
+     res.status(200).json({message:"Travel story deleted successfully"});
+  }catch(error) {
+    res.status(500).json({error:true,message:error.message});
+  }
+})
 
 
+//update isFavourite
+app.put("/update-is-favourite/:id",authenticateToken,async(req,res)=> {
+  const { id }=req.params;
+  const { isFavourite }=req.body;
+  const { userId }=req.user;
 
+  try {
+    const travelStory =await TravelStory.findOne({ _id:id,userId:userId });
 
+    if(!travelStory) {
+      return res.status(404).json({error:true,message:"Travel story not found"});
+    }
 
+    travelStory.isFavourite=isFavourite;
+
+    await travelStory.save();
+    res.status(200).json({ story:travelStory,message:'Update Successful'});
+  }catch(error) {
+    res.status(500).json({error:true,message:error.message});
+  }
+})
+
+//Search travel Stories
+app.get("/search",authenticateToken,async(req,res)=> {
+  const { query }=req.query;
+  const { userId }=req.user;
+
+  if(!query) {
+    return res.status(404).json ({error:true,message:"query is require"});
+  }
+
+  try {
+    const searchResults=await TravelStory.find({
+      userId:userId,
+      $or:[
+        {title:{ $regex:query,$options:"i"}},
+      { story: { $regex:query,$options:"i"}},
+      { visitedLocation:{ $regex:query,$options:"i"}},
+      ],
+    }).sort ({ isFavourite:-1});
+
+    res.status(200).json({stories:searchResults}); 
+  }catch(error) {
+    res.status(500).json({error:true,message:error.mesage});
+  }
+
+})
 
 app.listen(8000);
 module.exports=app;
