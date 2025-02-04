@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import PasswordInput from "../../components/Input/PasswordInput";
 import { validateEmail } from "../../utils/helper";
+import axiosInstance from "../../utils/axiosInstance";
 
 const login = () => {
   const [email, setEmail] = useState("");
@@ -26,6 +27,29 @@ const login = () => {
     setError("");
 
     //Login APICall
+    try {
+      const response = await axiosInstance.post("/login", {
+        email: email,
+        password: password,
+      });
+
+      //handle successful -login response
+      if (response.data && response.data.accessToken) {
+        localStorage.setItem("token", response.data.accessToken);
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      //Hnadle login error
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
+        setError(error.response.data.message);
+      } else {
+        setError("Unknown error occured");
+      }
+    }
   };
   return (
     <div className="h-screen bg-cyan-50 overflow-hidden relative">

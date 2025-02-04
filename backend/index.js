@@ -126,7 +126,7 @@ app.post("/image-upload", upload.single("image"), async (req, res) => {
 
     const imageUrl = `http://localhost:8000/uploads/${req.file.filename}`; // Fixed template string syntax
 
-    res.status(201).json({ imageUrl }); // Corrected object syntax
+    res.status(200).json({ imageUrl }); // Corrected object syntax
   } catch (error) {
     res.status(500).json({ error: true, message: error.message }); // Fixed "message" key spelling
   }
@@ -174,7 +174,7 @@ app.post("/add-travel-story",authenticateToken,async(req,res)=> {
   const {userId}=req.user
   
   //validate required fields
-  if(!title||!story||!visitedLocation||!imageUrl||!visitedDate) {
+  if(!title||!story||!visitedLocation||!visitedDate) {
     return res.status(400).json({ error:true,message:"All fields are required"});
   }
 
@@ -236,7 +236,7 @@ app.put("/edit-story/:id",authenticateToken,async(req,res)=> {
     if(!travelStory) {
       return res.status(404).json({error:true,message:"Travel story not found"});
     }
-    const placeholderImgUrl='http://localhost:8000/assets/placeholder.png';
+    const placeholderImgUrl='http://localhost:8000/assets/placeholder1.jpg';
 
     travelStory.title=title;
     travelStory.story=story;
