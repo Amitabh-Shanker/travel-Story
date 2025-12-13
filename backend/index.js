@@ -233,8 +233,8 @@ app.put("/edit-story/:id", authenticateToken, async (req, res) => {
   const { userId } = req.user;
 
   //validate required fields
-  if (!title || !story || !visitedLocation || !imageUrl || !visitedDate) {
-    return res.status(400).json({ error: true, message: "all fields are required" });
+  if (!title || !story || !visitedLocation || !visitedDate) {
+    return res.status(400).json({ error: true, message: "Title, story, visited location, and visited date are required" });
   }
 
   //convert visitedDate from milliseconds to Date object
@@ -248,7 +248,7 @@ app.put("/edit-story/:id", authenticateToken, async (req, res) => {
     if (!travelStory) {
       return res.status(404).json({ error: true, message: "Travel story not found" });
     }
-    const placeholderImgUrl = 'http://localhost:8000/assets/placeholder1.jpg';
+    const placeholderImgUrl = `${process.env.BASE_URL || 'https://travel-story-7vpm.onrender.com'}/assets/placeholder1.jpg`;
 
     travelStory.title = title;
     travelStory.story = story;
