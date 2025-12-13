@@ -65,7 +65,7 @@ const AddEditTravelStory = ({
         setError(error.response.data.message);
       } else {
         //Handle unexpected errore
-        setErrors("An unexpected error occured.Please try again");
+        setError("An unexpected error occured.Please try again");
       }
     }
   };
@@ -119,7 +119,7 @@ const AddEditTravelStory = ({
         setError(error.response.data.message);
       } else {
         //Handle unexpected errore
-        setErrors("An unexpected error occured.Please try again");
+        setError("An unexpected error occured.Please try again");
       }
     }
   };
