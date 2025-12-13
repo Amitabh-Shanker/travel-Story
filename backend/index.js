@@ -6,7 +6,9 @@ const bcrypt = require("bcrypt");
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const upload = require("./multer");
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const fs = require("fs");
 const path = require("path");
 
@@ -129,6 +131,24 @@ app.get("/get-user", authenticateToken, async (req, res) => {
 
 });
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure Multer Storage for Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'travel-stories',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 1200, quality: 'auto' }]
+  }
+});
+
+const upload = multer({ storage: storage });
 
 //Route to handle image upload
 app.post("/image-upload", upload.single("image"), async (req, res) => {
@@ -137,17 +157,17 @@ app.post("/image-upload", upload.single("image"), async (req, res) => {
       return res.status(400).json({ error: true, message: "No image uploaded" });
     }
 
-    const imageUrl = `http://localhost:8000/uploads/${req.file.filename}`; // Fixed template string syntax
+    // Cloudinary URL is in req.file.path
+    const imageUrl = req.file.path;
 
-    res.status(200).json({ imageUrl }); // Corrected object syntax
+    res.status(200).json({ imageUrl });
   } catch (error) {
-    res.status(500).json({ error: true, message: error.message }); // Fixed "message" key spelling
+    res.status(500).json({ error: true, message: error.message });
   }
 });
 
 
-//Delete an image  from uploads folder
-
+//Delete an image from Cloudinary
 app.delete("/delete-image", async (req, res) => {
   const { imageUrl } = req.query;
 
@@ -156,19 +176,20 @@ app.delete("/delete-image", async (req, res) => {
   }
 
   try {
-    //Extract the filename from the imageUrl
-    const filename = path.basename(imageUrl);
+    // Extract public_id from Cloudinary URL
+    // Example URL: https://res.cloudinary.com/dsoxsmlfc/image/upload/v123/travel-stories/abc123.jpg
+    const urlParts = imageUrl.split('/');
+    const filename = urlParts[urlParts.length - 1].split('.')[0]; // abc123
+    const folder = urlParts[urlParts.length - 2]; // travel-stories
+    const publicId = `${folder}/${filename}`;
 
-    //Define the file path
-    const filePath = path.join(__dirname, 'uploads', filename);
+    // Delete from Cloudinary
+    const result = await cloudinary.uploader.destroy(publicId);
 
-    //check if the file exists
-    if (fs.existsSync(filePath)) {
-      //Delete the file from the uploads folder
-      fs.unlinkSync(filePath);
-      res.status(200).json({ message: "image deleted successfully" });
+    if (result.result === 'ok' || result.result === 'not found') {
+      res.status(200).json({ message: "Image deleted successfully" });
     } else {
-      res.status(200).json({ error: true, message: "image not found" });
+      res.status(400).json({ error: true, message: "Failed to delete image" });
     }
   } catch (error) {
     res.status(500).json({ error: true, message: error.message });
