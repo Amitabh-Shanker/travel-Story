@@ -34,14 +34,15 @@ const AddEditTravelStory = ({
       //Upload image if present
       if (storyImg) {
         const imgUploadRes = await uploadImage(storyImg);
-
-        //Get image URL
-        imageUrl = imgUploadRes.imageUrl || "";
+        imageUrl = Array.isArray(imgUploadRes.imageUrl)
+          ? imgUploadRes.imageUrl[0]
+          : imgUploadRes.imageUrl || "";
       }
+
       const response = await axiosInstance.post("/add-travel-story", {
         title,
         story,
-        imageUrl: imageUrl || "",
+        imageUrl: imageUrl,
         visitedLocation,
         visitedDate: visitedDate
           ? moment(visitedDate).valueOf()
